@@ -1,4 +1,5 @@
 #!/bin/sh
+#Script so that you don't have to type 3 different commands everytime an ssh hostkey has changed
 
 	if [ -z $1 ]; then
 		echo "usage: ssh-key-wipe fully.qualified.hostname"
