@@ -1,4 +1,6 @@
 #!/bin/bash
+#Useful utility when you want to convert a relative path to an absolute path
+#I use it when I want to copy an absolute path
 
 if [ -z "$1" ]; then
 	echo "usage: [relativefilename.extension]"
