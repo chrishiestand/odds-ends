@@ -1,0 +1,13 @@
+#!/bin/sh
+
+	if [ -z $1 ]; then
+		echo "usage: ssh-key-wipe fully.qualified.hostname"
+		exit 99
+	fi
+
+	FQDN=$1
+	SHORTNAME=`echo $FQDN | cut -d'.' -f1`
+
+	ssh-keygen -R $FQDN
+	ssh-keygen -R $SHORTNAME
+	ssh-keygen -R `dig +short +short $FQDN`
