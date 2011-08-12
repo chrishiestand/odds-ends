@@ -1,1 +1,7 @@
-A random collection of shell scripts that speed up my daily life as a systems administrator
+#A random collection of shell scripts that speed up my daily life as a systems administrator
+
+* apache-log-correlate: time correlates apache requests (logged in a custom format) across multiple log files.  
+  The goal being that if something happens to your server at 3:54:30 AM, you can use this to quickly scan every 
+  log file to see which files were being accessed. 
+* pathto: a somewhat wonky replacement for realpath, if realpath is not available
+* ssh-key-wipe: quickly erase all the ssh host keys in your known-hosts file for a given fully qualified hostname.
