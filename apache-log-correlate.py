@@ -7,12 +7,12 @@ from datetime import datetime, date, time, timedelta, tzinfo
 
 class ApacheLogLine:
   
-  maxLengths = {'date_time' : 9, 'seconds' : 7, 'bytes' : 5, 'status' : 6} #these numbers are lengths of hard-coded column headers, used for column padding
+  maxLengths = {'date_time' : 9, 'seconds' : 7, 'bytes' : 5, 'rate': 3,'status' : 6} #these numbers are lengths of hard-coded column headers, used for column padding
 
   def __init__(self, RequestData):
     if RequestData['bytes'] == '-':
       RequestData['bytes'] = '0'
-    for digits in ['status', 'bytes', 'seconds', 'milliseconds']:
+    for digits in ['status', 'bytes', 'seconds', 'microseconds']:
       if not RequestData[digits].isdigit():
         raise AttributeError('Could not determine bytes for requestData: ' + str(RequestData))
 
@@ -25,11 +25,12 @@ class ApacheLogLine:
     self.status        = int(RequestData['status'])
     self.bytes         = int(RequestData['bytes'])
     self.seconds       = int(RequestData['seconds'])
-    self.milliseconds  = int(RequestData['milliseconds'])
+    self.microseconds  = int(RequestData['microseconds'])
+    self.rate          = int(self.bytes / self.microseconds * 1000000)
 
 
   def print(self):
-    print(self.date_time.strftime("%Y-%m-%d:%H:%M:%S").ljust(ApacheLogLine.maxLengths['date_time']), ' ', str(self.seconds).rjust(ApacheLogLine.maxLengths['seconds']) , ' ' , str(self.bytes).rjust(ApacheLogLine.maxLengths['bytes']), ' ', str(self.status).rjust(ApacheLogLine.maxLengths['status']), ' ', self.request_line1)
+    print(self.date_time.strftime("%Y-%m-%d:%H:%M:%S").ljust(ApacheLogLine.maxLengths['date_time']), ' ', str(self.seconds).rjust(ApacheLogLine.maxLengths['seconds']) , ' ' , str(self.bytes).rjust(ApacheLogLine.maxLengths['bytes']), ' ', str(self.rate).rjust(ApacheLogLine.maxLengths['rate']) , ' ', str(self.status).rjust(ApacheLogLine.maxLengths['status']), ' ', self.request_line1)
 
 
   def isDuring(self, targetTime):
@@ -64,7 +65,7 @@ for logfile in args.logs:
   for line in logfilehandle:
       
     try:
-      matches = re.match("(?P<remote_host>\S+) (?P<log_name>\S+) (?P<user_name>\S+) \[(?P<date_time>[^\]]+)\] \"(?P<request_line1>.+)\" (?P<status>\d+) (?P<bytes>\S+) (?P<seconds>\d+) (?P<milliseconds>\d+) .*" , line.strip()).groupdict()
+      matches = re.match("(?P<remote_host>\S+) (?P<log_name>\S+) (?P<user_name>\S+) \[(?P<date_time>[^\]]+)\] \"(?P<request_line1>.+)\" (?P<status>\d+) (?P<bytes>\S+) (?P<seconds>\d+) (?P<microseconds>\d+) .*" , line.strip()).groupdict()
     except AttributeError: #skip non-matching lines
       print("Skipping non-conforming line: " + line)
       continue
@@ -89,6 +90,7 @@ for logfile in args.logs:
     ApacheLogLine.maxLengths['date_time'] = max(ApacheLogLine.maxLengths['date_time'], len(str(ALL.date_time)))
     ApacheLogLine.maxLengths['seconds']   = max(ApacheLogLine.maxLengths['seconds'], len(str(ALL.seconds)))
     ApacheLogLine.maxLengths['bytes']     = max(ApacheLogLine.maxLengths['bytes'], len(str(ALL.bytes)))
+    ApacheLogLine.maxLengths['rate']     = max(ApacheLogLine.maxLengths['rate'], len(str(ALL.rate)))
     ApacheLogLine.maxLengths['status']    = max(ApacheLogLine.maxLengths['status'], len(str(ALL.status)))
 
 
@@ -99,6 +101,6 @@ elif args.sort == 'bytes':
 elif args.sort == 'seconds':
   lines = sorted(lines, key=lambda logline: logline.seconds)  
 
-print("Date-Time".ljust(ApacheLogLine.maxLengths['date_time']), ' ',   'Seconds'.rjust(ApacheLogLine.maxLengths['seconds']), ' ', 'Bytes'.rjust(ApacheLogLine.maxLengths['bytes']) , ' ', 'Status'.rjust(ApacheLogLine.maxLengths['status']), ' ' ,  'Reuqest-Line-1')
+print("Date-Time".ljust(ApacheLogLine.maxLengths['date_time']), ' ',   'Seconds'.rjust(ApacheLogLine.maxLengths['seconds']), ' ', 'Bytes'.rjust(ApacheLogLine.maxLengths['bytes']) , ' ', 'B/S'.rjust(ApacheLogLine.maxLengths['rate']) ,' ', 'Status'.rjust(ApacheLogLine.maxLengths['status']), ' ' ,  'Reuqest-Line-1')
 for line in lines:
   line.print()
