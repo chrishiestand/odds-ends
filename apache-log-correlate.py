@@ -7,7 +7,7 @@ from datetime import datetime, date, time, timedelta, tzinfo
 
 class ApacheLogLine:
   
-  maxLengths = {'date_time' : 9, 'seconds' : 7, 'bytes' : 5, 'rate': 3,'status' : 6} #these numbers are lengths of hard-coded column headers, used for column padding
+  maxLengths = {'date_time' : 9, 'remote_host' : 9, 'seconds' : 7, 'bytes' : 5, 'rate': 3,'status' : 6} #these numbers are lengths of hard-coded column headers, used for column padding
 
   def __init__(self, RequestData):
     if RequestData['bytes'] == '-':
@@ -30,14 +30,15 @@ class ApacheLogLine:
 
 
   def print(self):
-    print(self.date_time.strftime("%Y-%m-%d:%H:%M:%S").ljust(ApacheLogLine.maxLengths['date_time']), ' ', str(self.seconds).rjust(ApacheLogLine.maxLengths['seconds']) , ' ' , str(self.bytes).rjust(ApacheLogLine.maxLengths['bytes']), ' ', str(self.rate).rjust(ApacheLogLine.maxLengths['rate']) , ' ', str(self.status).rjust(ApacheLogLine.maxLengths['status']), ' ', self.request_line1)
+    print(self.date_time.strftime("%Y-%m-%d:%H:%M:%S").ljust(ApacheLogLine.maxLengths['date_time']), ' ', str(self.remote_host).rjust(ApacheLogLine.maxLengths['remote_host']) , ' ', str(self.seconds).rjust(ApacheLogLine.maxLengths['seconds']) , ' ' , str(self.bytes).rjust(ApacheLogLine.maxLengths['bytes']), ' ', str(self.rate).rjust(ApacheLogLine.maxLengths['rate']) , ' ', str(self.status).rjust(ApacheLogLine.maxLengths['status']), ' ', self.request_line1)
 
 
-  def isDuring(self, targetTime):
+  def isDuring(self, targetTime, window):
     targetTime = datetime.strptime(targetTime, "%Y-%m-%d:%H:%M:%S")
-    endTime = self.date_time + timedelta(seconds = self.seconds)
+    windowStart = self.date_time - timedelta(seconds = window)
+    windowEnd = self.date_time + timedelta(seconds = self.seconds if self.seconds > window else window)
     
-    if targetTime >= self.date_time and targetTime <= endTime:
+    if targetTime >= windowStart and targetTime <= windowEnd:
       return True
     return False
 
@@ -48,8 +49,9 @@ defaultSort = 'date_time'
 
 parser.add_argument("-m", "--minimum-seconds", dest="minimumResponseTime", type=int, default=defaultResponsetime, help="Show responses which have taken at minimum t seconds. default: " + str(defaultResponsetime))
 parser.add_argument('logs', metavar='logfile', type=str, nargs='+', help='apache logfile with format: "%%h %%l %%u %%t \\"%%r\\" %%>s %%b %%T %%D \\"%%{Referer}i\\" \\"%%{User-Agent}i\\""')
-parser.add_argument("-s", "--sort", dest="sort", type=str, default=defaultSort, choices = ['date_time', 'seconds', 'bytes'], help="Which field to sort results by, default: " + defaultSort)
+parser.add_argument("-s", "--sort", dest="sort", type=str, default=defaultSort, choices = ['date_time', 'seconds', 'bytes', 'rate', 'remote_host'], help="Which field to sort results by, default: " + defaultSort)
 parser.add_argument("-t", "--at-time", dest="targetTime", type=str, help="Show active connections during at time in form: yyyy-mm-dd:HH:MM:SS")
+parser.add_argument("-w", "--window", dest="window", default=0, type=int, help="Show active connections at (-t, --at-time), with window (before and after) in seconds")
 
 args = parser.parse_args()
 lines = []
@@ -64,8 +66,9 @@ for logfile in args.logs:
 
   for line in logfilehandle:
       
+      #The first access_log match is if you have pre-filtered the access logs using grep
     try:
-      matches = re.match("(?P<remote_host>\S+) (?P<log_name>\S+) (?P<user_name>\S+) \[(?P<date_time>[^\]]+)\] \"(?P<request_line1>.+)\" (?P<status>\d+) (?P<bytes>\S+) (?P<seconds>\d+) (?P<microseconds>\d+) .*" , line.strip()).groupdict()
+      matches = re.match("(?P<access_log>\S+.log:)?(?P<remote_host>\S+) (?P<log_name>\S+) (?P<user_name>\S+) \[(?P<date_time>[^\]]+)\] \"(?P<request_line1>.+)\" (?P<status>\d+) (?P<bytes>\S+) (?P<seconds>\d+) (?P<microseconds>\d+) .*" , line.strip()).groupdict()
     except AttributeError: #skip non-matching lines
       print("Skipping non-conforming line: " + line)
       continue
@@ -80,18 +83,19 @@ for logfile in args.logs:
         sys.exit(3)
 
     if args.targetTime:
-      if ALL.isDuring(args.targetTime):
+      if ALL.isDuring(targetTime = args.targetTime, window = args.window):
         lines.append(ALL)
       else:
         continue
     else:
       lines.append(ALL)
 
-    ApacheLogLine.maxLengths['date_time'] = max(ApacheLogLine.maxLengths['date_time'], len(str(ALL.date_time)))
-    ApacheLogLine.maxLengths['seconds']   = max(ApacheLogLine.maxLengths['seconds'], len(str(ALL.seconds)))
-    ApacheLogLine.maxLengths['bytes']     = max(ApacheLogLine.maxLengths['bytes'], len(str(ALL.bytes)))
-    ApacheLogLine.maxLengths['rate']     = max(ApacheLogLine.maxLengths['rate'], len(str(ALL.rate)))
-    ApacheLogLine.maxLengths['status']    = max(ApacheLogLine.maxLengths['status'], len(str(ALL.status)))
+    ApacheLogLine.maxLengths['date_time']   = max(ApacheLogLine.maxLengths['date_time'], len(str(ALL.date_time)))
+    ApacheLogLine.maxLengths['remote_host'] = max(ApacheLogLine.maxLengths['remote_host'], len(str(ALL.remote_host)))
+    ApacheLogLine.maxLengths['seconds']     = max(ApacheLogLine.maxLengths['seconds'], len(str(ALL.seconds)))
+    ApacheLogLine.maxLengths['bytes']       = max(ApacheLogLine.maxLengths['bytes'], len(str(ALL.bytes)))
+    ApacheLogLine.maxLengths['rate']        = max(ApacheLogLine.maxLengths['rate'], len(str(ALL.rate)))
+    ApacheLogLine.maxLengths['status']      = max(ApacheLogLine.maxLengths['status'], len(str(ALL.status)))
 
 
 if args.sort == 'date_time':
@@ -99,8 +103,13 @@ if args.sort == 'date_time':
 elif args.sort == 'bytes':
   lines = sorted(lines, key=lambda logline: logline.bytes)
 elif args.sort == 'seconds':
-  lines = sorted(lines, key=lambda logline: logline.seconds)  
+  lines = sorted(lines, key=lambda logline: logline.seconds)
+elif args.sort == 'rate':
+  lines = sorted(lines, key=lambda logline: logline.rate)
+elif args.sort == 'remote_host':
+  lines = sorted(lines, key=lambda logline: logline.remote_host)  
+  
 
-print("Date-Time".ljust(ApacheLogLine.maxLengths['date_time']), ' ',   'Seconds'.rjust(ApacheLogLine.maxLengths['seconds']), ' ', 'Bytes'.rjust(ApacheLogLine.maxLengths['bytes']) , ' ', 'B/S'.rjust(ApacheLogLine.maxLengths['rate']) ,' ', 'Status'.rjust(ApacheLogLine.maxLengths['status']), ' ' ,  'Reuqest-Line-1')
+print("Date-Time".ljust(ApacheLogLine.maxLengths['date_time']), ' ',   'Remote IP'.ljust(ApacheLogLine.maxLengths['remote_host']), ' ', 'Seconds'.rjust(ApacheLogLine.maxLengths['seconds']), ' ', 'Bytes'.rjust(ApacheLogLine.maxLengths['bytes']) , ' ', 'B/S'.rjust(ApacheLogLine.maxLengths['rate']) ,' ', 'Status'.rjust(ApacheLogLine.maxLengths['status']), ' ' ,  'Reuqest-Line-1')
 for line in lines:
   line.print()
