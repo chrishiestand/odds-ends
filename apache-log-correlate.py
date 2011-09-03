@@ -16,6 +16,7 @@ class ApacheLogLine:
       if not RequestData[digits].isdigit():
         raise AttributeError('Could not determine bytes for requestData: ' + str(RequestData))
 
+    self.log_file      = RequestData['access_log']
     self.remote_host   = RequestData['remote_host']
     self.log_name      = RequestData['log_name']
     self.user_name     = RequestData['user_name']
@@ -70,7 +71,7 @@ for logfile in args.logs:
     try:
       matches = re.match("(?P<access_log>\S+.log:)?(?P<remote_host>\S+) (?P<log_name>\S+) (?P<user_name>\S+) \[(?P<date_time>[^\]]+)\] \"(?P<request_line1>.+)\" (?P<status>\d+) (?P<bytes>\S+) (?P<seconds>\d+) (?P<microseconds>\d+) .*" , line.strip()).groupdict()
     except AttributeError: #skip non-matching lines
-      print("Skipping non-conforming line: " + line)
+      sys.stderr.write("Skipping non-conforming line: " + line)
       continue
       
     if matches and int(matches['seconds']) >= args.minimumResponseTime:
